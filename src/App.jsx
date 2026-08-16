@@ -1,124 +1,238 @@
-import logo from './logo.svg';
-import './App.css';
-import Activity from './components/Activity';
-import React, { useEffect, useState } from 'react';
-import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css';
-import { MainContainer, ChatContainer, MessageList, Message, MessageInput, TypingIndicator} from '@chatscope/chat-ui-kit-react';
-
-// API key from Open AI
-const API_KEY = "sk-proj-Jio5xoPO0caWkk9ZweakT3BlbkFJ5PzqRVS0eV6PUvIB8RRk";
+import React, { useState } from "react";
+import "./App.css";
 
 function App() {
-  const [typing, setTyping] = useState(false);
   const [messages, setMessages] = useState([
     {
-      message: "Hello, I am ChatGPT!",
-      sender: "ChatGPT"
-    }
-  ])
+      message:
+        "Hello! I'm CosmoChat. Ask me anything and I'll do my best to help.",
+      sender: "CosmoChat",
+    },
+  ]);
 
-  const handleSend = async (message) => {
-    const newMessage = 
-    {
-      message: message,
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSend = async (event) => {
+    event.preventDefault();
+
+    const trimmedMessage = input.trim();
+
+    if (!trimmedMessage || loading) {
+      return;
+    }
+
+    const userMessage = {
+      message: trimmedMessage,
       sender: "user",
-      direction: "outgoing"
-    }
-    
-    const newMessages = [...messages, newMessage]; // all the old messages, + the new message
-    
-    // Update our message state
-    setMessages(newMessages);
+    };
 
-    
-    // set a typing indicator
-    setTyping(true);
+    setMessages((previousMessages) => [
+      ...previousMessages,
+      userMessage,
+    ]);
 
-    // Process message to chatGPT (send it over and see the response)
-    await processMessageToChatGPT(newMessages);
-  }
+    setInput("");
+    setLoading(true);
 
-  // Process Messages with ChatGTP AI
-  async function processMessageToChatGPT(chatMessages){
-
-    // chat messages formatted for api
-    // role: "user" => a message from the user 
-    // role: "assistant" => a response from ChatGPT
-    // role: "system" => generally one initial message defining how we want ChatGPT to talk
-    
-    let apiMessages =  chatMessages.map((messageObject) => { 
-      let role = "";
-      if(messageObject.sender === "ChatGPT") {
-        role = "assistant"
-      } else {
-          role = "user"
-      }
-      return { role: role, content: messageObject.message }
-    });
-
-    const systemMessage = { 
-      role: "system",
-      content: "Explain all concepts like I am 10 years old."
-      //speak like a pirate, Explain like I am a 10 years of experience software engineer
-    }
-    
-    const apiRequestBody = { 
-       "model": "gpt-3.5-turbo",
-
-       // all different messages in our conversation
-       "messages": [
-          systemMessage,
-          ...apiMessages
-      ]
-    }
-
-    await fetch("https://api.openai.com/v1/chat/completions", 
-      { 
-        method: "POST",       //posting messages to API
-        headers: {
-          "Authorization" : "Bearer " + API_KEY,
-          "Content-Type" : "application/json"
-        },
-        body: JSON.stringify(apiRequestBody)
-      }
-    ).then((data) =>{ 
-      return data.json(); //return data in json format from Open AI API
-    }).then((data) =>{
-      console.log(data); 
-      console.log(data.choices[0].message.content);
-      setMessages(
-        [...chatMessages, {
-            message: data.choices[0].message.content,
-            sender: "ChatGPT"
-        }]
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/chat",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: trimmedMessage,
+          }),
+        }
       );
-      setTyping(false);
-    });
-  }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "CosmoChat API request failed."
+        );
+      }
+
+      if (!data.reply) {
+        throw new Error("The API returned no reply.");
+      }
+
+      setMessages((previousMessages) => [
+        ...previousMessages,
+        {
+          message: data.reply,
+          sender: "CosmoChat",
+        },
+      ]);
+    } catch (error) {
+      console.error("CosmoChat connection error:", error);
+
+      setMessages((previousMessages) => [
+        ...previousMessages,
+        {
+          message:
+            "Sorry, I couldn't connect to CosmoChat right now. Please make sure the CosmoChat server is running.",
+          sender: "CosmoChat",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearChat = () => {
+    if (loading) {
+      return;
+    }
+
+    setMessages([
+      {
+        message:
+          "Hello! I'm CosmoChat. Ask me anything and I'll do my best to help.",
+        sender: "CosmoChat",
+      },
+    ]);
+  };
 
   return (
-    <div className="App" >
-      <div style={{ position: 'relative', height: '800px', width: '1000px', display: 'flex'}}>
-        <MainContainer>
-          <ChatContainer>
-            <MessageList
-              scrollBehavior='smooth'
-              typingIndicator={typing ? <TypingIndicator content='ChatGPT is Typing' /> : null}
+    <div className="App">
+      <main className="chat-wrapper">
+
+        {/* Header */}
+        <header className="chat-header">
+          <div className="brand-section">
+            <div className="cosmo-logo">
+              ✦
+            </div>
+
+            <div>
+              <h1>CosmoChat</h1>
+              <p>Your personal AI assistant</p>
+            </div>
+          </div>
+
+          <div className="header-actions">
+            <div className="status">
+              <span className="status-dot"></span>
+              <span>Online</span>
+            </div>
+
+            <button
+              type="button"
+              className="clear-button"
+              onClick={clearChat}
+              disabled={loading}
+              title="Clear conversation"
             >
-              {messages.map((message, i) => {
-                  return <Message key={i} model={message} />
-              })}
-            </MessageList>
-            <MessageInput placeholder='Type message here' onSend={handleSend}/>
-            
-          </ChatContainer> 
-        </MainContainer>
+              Clear
+            </button>
+          </div>
+        </header>
 
-        {/* <Activity /> */}
-     
-      </div>
+        {/* Messages */}
+        <section className="message-list">
+          {messages.map((message, index) => {
+            const isUser = message.sender === "user";
 
+            return (
+              <div
+                key={index}
+                className={`message-row ${
+                  isUser ? "user-row" : "bot-row"
+                }`}
+              >
+                {!isUser && (
+                  <div className="avatar bot-avatar">
+                    ✦
+                  </div>
+                )}
 
+                <div className="message-content">
+                  <span className="message-sender">
+                    {isUser ? "You" : "CosmoChat"}
+                  </span>
+
+                  <div
+                    className={`message-bubble ${
+                      isUser
+                        ? "user-message"
+                        : "bot-message"
+                    }`}
+                  >
+                    {message.message}
+                  </div>
+                </div>
+
+                {isUser && (
+                  <div className="avatar user-avatar">
+                    You
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Typing indicator */}
+          {loading && (
+            <div className="message-row bot-row">
+              <div className="avatar bot-avatar">
+                ✦
+              </div>
+
+              <div className="message-content">
+                <span className="message-sender">
+                  CosmoChat
+                </span>
+
+                <div className="message-bubble bot-message typing-bubble">
+                  <span className="typing-text">
+                    Thinking
+                  </span>
+
+                  <span className="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Input */}
+        <form
+          className="message-input-container"
+          onSubmit={handleSend}
+        >
+          <input
+            type="text"
+            value={input}
+            onChange={(event) =>
+              setInput(event.target.value)
+            }
+            placeholder="Message CosmoChat..."
+            disabled={loading}
+            autoComplete="off"
+          />
+
+          <button
+            type="submit"
+            className="send-button"
+            disabled={loading || !input.trim()}
+          >
+            {loading ? "..." : "Send"}
+          </button>
+        </form>
+
+        <p className="footer-note">
+          CosmoChat can make mistakes. Verify important information.
+        </p>
+      </main>
     </div>
   );
 }
