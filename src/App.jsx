@@ -35,7 +35,7 @@ function App() {
     setInput("");
     setLoading(true);
 
-    const API_URL = "https://cosmochat-api.onrender.com/";
+    const API_URL = "https://cosmochat-api.onrender.com";
 
     try {
       const response = await fetch(
