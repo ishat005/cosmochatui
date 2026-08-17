@@ -57,6 +57,6 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`CosmoChat API running at http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`CosmoChat API running on port ${PORT}`);
 });
